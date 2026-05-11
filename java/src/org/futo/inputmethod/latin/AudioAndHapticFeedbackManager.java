@@ -17,12 +17,25 @@
 package org.futo.inputmethod.latin;
 
 import android.content.Context;
+import android.content.Context;
+import android.content.res.Resources;
+import android.content.res.TypedArray;
+import android.content.res.TypedArray;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
+// New imports for custom sound engine
+import android.media.SoundPool;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Vibrator;
+import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
-
+import java.lang.Integer;
+import java.util.HashMap;
+import org.futo.inputmethod.latin.R;
 import org.futo.inputmethod.latin.common.Constants;
+import org.futo.inputmethod.latin.settings.Settings;
 import org.futo.inputmethod.latin.settings.SettingsValues;
 
 /**
@@ -32,14 +45,29 @@ import org.futo.inputmethod.latin.settings.SettingsValues;
  * complexity of settings and the like.
  */
 public final class AudioAndHapticFeedbackManager {
+
     private AudioManager mAudioManager;
     private Vibrator mVibrator;
 
     private SettingsValues mSettingsValues;
     private boolean mSoundOn;
+    // New variables for custom sound engine
+    private SoundPool mSoundPool;
+    private HashMap<Integer, Integer> mSoundMap = new HashMap<>();
+    private int mLastSelectedProfile;
+    private boolean mSoundsLoaded;
+    private Context mContext;
+    private int mExpectedSoundCount = 0;
+    private int mLoadedSoundCount = 0;
+    private static final String TAG = "AudioFeedbackManager";
+    private int deleteSoundId;
+    private int enterSoundId;
+    private int spaceSoundId;
+    private int[] keypressSoundId;
+    private int numberOfUniqueSounds;
 
     private static final AudioAndHapticFeedbackManager sInstance =
-            new AudioAndHapticFeedbackManager();
+        new AudioAndHapticFeedbackManager();
 
     public static AudioAndHapticFeedbackManager getInstance() {
         return sInstance;
@@ -54,12 +82,227 @@ public final class AudioAndHapticFeedbackManager {
     }
 
     private void initInternal(final Context context) {
-        mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+        //  Android Studio calls this line a memory leak, but it's not.
+        // it would only be a memory leak if it was storing ACTIVITY context,
+        // but it's storing APPLICATION context.
+        mContext = context.getApplicationContext();
+        mSoundsLoaded = false;
+        mAudioManager = (AudioManager) context.getSystemService(
+            Context.AUDIO_SERVICE
+        );
+        mVibrator = (Vibrator) context.getSystemService(
+            Context.VIBRATOR_SERVICE
+        );
+
+        // Initialize SoundPool
+        AudioAttributes audioAttributes = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
+        mSoundPool = new SoundPool.Builder()
+            .setMaxStreams(8) // Max simultaneous sounds
+            .setAudioAttributes(audioAttributes)
+            .build();
+
+        mSoundPool.setOnLoadCompleteListener((soundPool, sampleId, status) -> {
+            if (status == 0) {
+                // success
+                mLoadedSoundCount++;
+                Log.d(
+                    TAG,
+                    "Sound loaded: " +
+                        sampleId +
+                        " (" +
+                        mLoadedSoundCount +
+                        "/" +
+                        mExpectedSoundCount +
+                        ")"
+                );
+                if (mLoadedSoundCount >= mExpectedSoundCount) {
+                    mapAllSounds();
+                    Log.i(TAG, "All sounds loaded successfully");
+                }
+            } else {
+                Log.e(
+                    TAG,
+                    "Error loading sound " + sampleId + ", status: " + status
+                );
+            }
+        });
     }
 
-    public void performHapticAndAudioFeedback(final int code,
-            final View viewToPerformHapticFeedbackOn) {
+    private void mapAllSounds() {
+        Resources res = mContext.getResources();
+        int startCharacterCode = res.getInteger(
+            R.integer.starting_latin_character_code
+        );
+        int endCharacterCode = res.getInteger(
+            R.integer.ending_latin_character_code
+        );
+
+        //MAPPING LATIN CHARACTER CODES
+        for (
+            int characterCode = startCharacterCode;
+            characterCode <= endCharacterCode;
+            characterCode++
+        ) {
+            int soundIndex =
+                (characterCode - startCharacterCode) % numberOfUniqueSounds; // cycles automatically
+            Log.i(
+                TAG,
+                "Mapping code: " +
+                    characterCode +
+                    " to " +
+                    keypressSoundId[soundIndex]
+            );
+            mSoundMap.put(characterCode, keypressSoundId[soundIndex]);
+        }
+        //MAPPING OUTLIER CODES
+        int[] specialCharacterCodes = res.getIntArray(
+            R.array.special_character_codes_outside_latin_range
+        );
+        for (
+            int specialCharacterIndex = 0;
+            specialCharacterIndex < specialCharacterCodes.length;
+            specialCharacterIndex++
+        ) {
+            int soundIndex = specialCharacterIndex % numberOfUniqueSounds; // cycles automatically
+            Log.i(
+                TAG,
+                "Mapping code: " +
+                    specialCharacterCodes[specialCharacterIndex] +
+                    " to " +
+                    keypressSoundId[soundIndex]
+            );
+            mSoundMap.put(
+                specialCharacterCodes[specialCharacterIndex],
+                keypressSoundId[soundIndex]
+            );
+        }
+        //  These have to be Mapped AFTER all the others because these
+        //  are actually being REmapped, i.e. they were mapped to soundIds
+        //  in the latin for-loop above, but I want to remap them to give them
+        //  their own special flavour.
+        //  You might be asking: Why not map them correctly to begin with
+        //  and avoid a remap?
+        //  My answer: I would have to put an if-statement in the for-loop just
+        //  for these special cases, and that seems costly. However, remapping
+        //  costs almost nothing...
+        mSoundMap.put(Constants.CODE_DELETE, deleteSoundId);
+        mSoundMap.put(Constants.CODE_ENTER, enterSoundId);
+        mSoundMap.put(Constants.CODE_SPACE, spaceSoundId);
+
+        mSoundsLoaded = true;
+    }
+
+    private void loadSoundsForCurrentProfile() {
+        if (mSoundPool != null) {
+            for (int soundId : mSoundMap.values()) {
+                mSoundPool.unload(soundId);
+            }
+        }
+        mSoundMap.clear();
+        mSoundsLoaded = false;
+        mExpectedSoundCount = 0;
+        mLoadedSoundCount = 0;
+        Log.d(
+            TAG,
+            "Loading sounds for profile: " +
+                mSettingsValues.mCustomKeypressSoundsProfile
+        );
+
+        try {
+            Resources res = mContext.getResources();
+            int deleteSoundResId = 0;
+            int enterSoundResId = 0;
+            int spaceSoundResId = 0;
+            int[] keypressSoundResIds;
+            TypedArray ta;
+            switch (mSettingsValues.mCustomKeypressSoundsProfile) {
+                case Settings.BLUE_KEYPRESS_PROFILE: // blue profile
+                    Log.i(TAG, "Using 'blue' sound profile.");
+                    deleteSoundResId = R.raw.blue_delete;
+                    enterSoundResId = R.raw.blue_enter;
+                    spaceSoundResId = R.raw.blue_space;
+                    ta = res.obtainTypedArray(
+                        R.array.blue_keypress_sound_res_ids
+                    );
+                    keypressSoundResIds = new int[ta.length()];
+                    for (int i = 0; i < ta.length(); i++) {
+                        keypressSoundResIds[i] = ta.getResourceId(i, 0);
+                    }
+                    ta.recycle();
+                    mLastSelectedProfile = Settings.BLUE_KEYPRESS_PROFILE;
+                    break;
+                case Settings.RED_KEYPRESS_PROFILE: // red profile
+                    Log.i(TAG, "Using 'red' sound profile.");
+                    deleteSoundResId = R.raw.red_delete;
+                    enterSoundResId = R.raw.red_enter;
+                    spaceSoundResId = R.raw.red_space;
+                    ta = res.obtainTypedArray(
+                        R.array.red_keypress_sound_res_ids
+                    );
+                    keypressSoundResIds = new int[ta.length()];
+                    for (int i = 0; i < ta.length(); i++) {
+                        keypressSoundResIds[i] = ta.getResourceId(i, 0);
+                    }
+                    ta.recycle();
+                    mLastSelectedProfile = Settings.RED_KEYPRESS_PROFILE;
+                    break;
+                default: // Fallback to old method, loading nothing
+                    Log.i(TAG, "FALLBACK TO DEFAULT METHOD");
+                    keypressSoundResIds = new int[] { 0 };
+                    mLastSelectedProfile = Settings.DEFAULT_KEYPRESS_PROFILE;
+                    break;
+            }
+            if (keypressSoundResIds[0] == 0) {
+                Log.i(TAG, "Exiting because keypressSoundResIds = 0");
+                return;
+            }
+            mExpectedSoundCount = keypressSoundResIds.length + 3;
+            //Loading Sounds
+
+            deleteSoundId = mSoundPool.load(mContext, deleteSoundResId, 1);
+            enterSoundId = mSoundPool.load(mContext, enterSoundResId, 1);
+            spaceSoundId = mSoundPool.load(mContext, spaceSoundResId, 1);
+            numberOfUniqueSounds = keypressSoundResIds.length;
+
+            keypressSoundId = new int[numberOfUniqueSounds];
+            int currentIndex = 0;
+            for (int soundResId : keypressSoundResIds) {
+                Log.i(TAG, "Loading sound: " + soundResId);
+                keypressSoundId[currentIndex] = mSoundPool.load(
+                    mContext,
+                    soundResId,
+                    1
+                );
+                currentIndex += 1;
+            }
+        } catch (Resources.NotFoundException e) {
+            Log.e(
+                TAG,
+                "Error loading sounds: A resource was not found for profile " +
+                    mSettingsValues.mCustomKeypressSoundsProfile +
+                    ". Check your res/raw folder and R class. " +
+                    e.getMessage()
+            );
+            mSoundsLoaded = false;
+        } catch (Exception e) {
+            Log.e(
+                TAG,
+                "Unexpected error loading sounds for profile " +
+                    mSettingsValues.mCustomKeypressSoundsProfile +
+                    ": " +
+                    e.getMessage()
+            );
+            mSoundsLoaded = false;
+        }
+    }
+
+    public void performHapticAndAudioFeedback(
+        final int code,
+        final View viewToPerformHapticFeedbackOn
+    ) {
         performHapticFeedback(viewToPerformHapticFeedbackOn, false);
         performAudioFeedback(code);
     }
@@ -76,59 +319,119 @@ public final class AudioAndHapticFeedbackManager {
     }
 
     private boolean reevaluateIfSoundIsOn() {
-        if (mSettingsValues == null || !mSettingsValues.mSoundOn || mAudioManager == null) {
+        if (
+            mSettingsValues == null ||
+            !mSettingsValues.mSoundOn ||
+            mAudioManager == null
+        ) {
             return false;
         }
         return mAudioManager.getRingerMode() == AudioManager.RINGER_MODE_NORMAL;
     }
 
     public void performAudioFeedback(final int code) {
+        Log.d(
+            TAG,
+            "performAudioFeedback - code: " +
+                code +
+                ", mSoundOn: " +
+                mSettingsValues.mSoundOn
+        );
+        if (!mSoundOn) {
+            return;
+        }
+        if (mSoundsLoaded) {
+            int soundId = mSoundMap.getOrDefault(code, 0);
+            if (soundId != 0) {
+                mSoundPool.play(
+                    soundId,
+                    mSettingsValues.mKeypressSoundVolume,
+                    mSettingsValues.mKeypressSoundVolume,
+                    1,
+                    0,
+                    1.0f
+                );
+                return;
+            } else {
+                Log.e(TAG, "Sound Id is 0 but should not be!");
+            }
+        } else {
+            Log.w(
+                TAG,
+                "Custom soundId not found or failed to load for code: " + code
+            );
+        }
         // if mAudioManager is null, we can't play a sound anyway, so return
         if (mAudioManager == null) {
             return;
         }
-        if (!mSoundOn) {
-            return;
-        }
         final int sound;
         switch (code) {
-        case Constants.CODE_DELETE:
-            sound = AudioManager.FX_KEYPRESS_DELETE;
-            break;
-        case Constants.CODE_ENTER:
-            sound = AudioManager.FX_KEYPRESS_RETURN;
-            break;
-        case Constants.CODE_SPACE:
-            sound = AudioManager.FX_KEYPRESS_SPACEBAR;
-            break;
-        default:
-            sound = AudioManager.FX_KEYPRESS_STANDARD;
-            break;
+            case Constants.CODE_DELETE:
+                sound = AudioManager.FX_KEYPRESS_DELETE;
+                break;
+            case Constants.CODE_ENTER:
+                sound = AudioManager.FX_KEYPRESS_RETURN;
+                break;
+            case Constants.CODE_SPACE:
+                sound = AudioManager.FX_KEYPRESS_SPACEBAR;
+                break;
+            default:
+                sound = AudioManager.FX_KEYPRESS_STANDARD;
+                break;
         }
-        mAudioManager.playSoundEffect(sound, mSettingsValues.mKeypressSoundVolume);
+        mAudioManager.playSoundEffect(
+            sound,
+            mSettingsValues.mKeypressSoundVolume
+        );
     }
 
-    public void performHapticFeedback(final View viewToPerformHapticFeedbackOn, final boolean repeatKey) {
+    public void performHapticFeedback(
+        final View viewToPerformHapticFeedbackOn,
+        final boolean repeatKey
+    ) {
         if (!mSettingsValues.mVibrateOn) {
             return;
         }
         if (mSettingsValues.mKeypressVibrationDuration >= 0) {
-            vibrate(mSettingsValues.mKeypressVibrationDuration / (repeatKey ? 2 : 1));
+            vibrate(
+                mSettingsValues.mKeypressVibrationDuration / (repeatKey ? 2 : 1)
+            );
             return;
         }
         // Go ahead with the system default
         if (viewToPerformHapticFeedbackOn != null) {
             viewToPerformHapticFeedbackOn.performHapticFeedback(
-                    HapticFeedbackConstants.KEYBOARD_TAP);
+                HapticFeedbackConstants.KEYBOARD_TAP
+            );
         }
     }
 
     public void onSettingsChanged(final SettingsValues settingsValues) {
         mSettingsValues = settingsValues;
         mSoundOn = reevaluateIfSoundIsOn();
+        if (
+            mSettingsValues.mCustomKeypressSoundsProfile !=
+                mLastSelectedProfile ||
+            !mSoundsLoaded
+        ) {
+            new Handler(Looper.getMainLooper()).post(
+                this::loadSoundsForCurrentProfile
+            );
+        }
     }
 
     public void onRingerModeChanged() {
         mSoundOn = reevaluateIfSoundIsOn();
+    }
+
+    public void release() {
+        Log.d(TAG, "Releasing SoundPool.");
+        if (mSoundPool != null) {
+            mSoundPool.release();
+            mSoundPool = null;
+        }
+        mSoundMap.clear();
+        mSoundsLoaded = false;
     }
 }

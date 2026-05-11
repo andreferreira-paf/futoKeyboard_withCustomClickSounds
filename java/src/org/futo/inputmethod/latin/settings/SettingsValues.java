@@ -25,7 +25,10 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-
+import java.util.Arrays;
+import java.util.Locale;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.futo.inputmethod.compat.AppWorkaroundsUtils;
 import org.futo.inputmethod.latin.InputAttributes;
 import org.futo.inputmethod.latin.R;
@@ -36,23 +39,19 @@ import org.futo.inputmethod.latin.utils.ResourceUtils;
 import org.futo.inputmethod.latin.utils.ScriptUtils2;
 import org.futo.inputmethod.latin.utils.TargetPackageInfoGetterTask;
 
-import java.util.Arrays;
-import java.util.Locale;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 /**
  * When you call the constructor of this class, you may want to change the current system locale by
  * using {@link org.futo.inputmethod.latin.utils.RunInLocale}.
  */
 // Non-final for testing via mock library.
 public class SettingsValues {
+
     private static final String TAG = SettingsValues.class.getSimpleName();
     // "floatMaxValue" and "floatNegativeInfinity" are special marker strings for
     // Float.NEGATIVE_INFINITE and Float.MAX_VALUE. Currently used for auto-correction settings.
     private static final String FLOAT_MAX_VALUE_MARKER_STRING = "floatMaxValue";
-    private static final String FLOAT_NEGATIVE_INFINITY_MARKER_STRING = "floatNegativeInfinity";
+    private static final String FLOAT_NEGATIVE_INFINITY_MARKER_STRING =
+        "floatNegativeInfinity";
     private static final int TIMEOUT_TO_GET_TARGET_PACKAGE = 5; // seconds
     public static final float DEFAULT_SIZE_SCALE = 1.0f; // 100%
 
@@ -68,6 +67,7 @@ public class SettingsValues {
     public final boolean mAutoCap;
     public final boolean mVibrateOn;
     public final boolean mSoundOn;
+    public final int mCustomKeypressSoundsProfile;
     public final boolean mKeyPreviewPopupOn;
     public final boolean mShowsVoiceInputKey;
     public final boolean mIncludesOtherImesInLanguageSwitchList;
@@ -135,18 +135,28 @@ public class SettingsValues {
     public final float mKeyPreviewDismissEndXScale;
     public final float mKeyPreviewDismissEndYScale;
 
-    @Nullable public final String mAccount;
+    @Nullable
+    public final String mAccount;
 
-    public SettingsValues(final Context context, final SharedPreferences prefs, final Resources res,
-            @Nonnull final InputAttributes inputAttributes) {
-        if(inputAttributes.mLocaleOverride != null) {
+    public SettingsValues(
+        final Context context,
+        final SharedPreferences prefs,
+        final Resources res,
+        @Nonnull final InputAttributes inputAttributes
+    ) {
+        if (inputAttributes.mLocaleOverride != null) {
             mLocale = inputAttributes.mLocaleOverride;
         } else {
             mLocale = res.getConfiguration().locale;
         }
-        mIsRTL = TextUtils.getLayoutDirectionFromLocale(mLocale) == View.LAYOUT_DIRECTION_RTL;
+        mIsRTL =
+            TextUtils.getLayoutDirectionFromLocale(mLocale) ==
+            View.LAYOUT_DIRECTION_RTL;
         // Get the resources
-        mSpacingAndPunctuations = SpacingAndPunctuations.create(context, res.getConfiguration().locale);
+        mSpacingAndPunctuations = SpacingAndPunctuations.create(
+            context,
+            res.getConfiguration().locale
+        );
 
         // Store the input attributes
         mInputAttributes = inputAttributes;
@@ -155,114 +165,241 @@ public class SettingsValues {
         mAutoCap = prefs.getBoolean(Settings.PREF_AUTO_CAP, true);
         mVibrateOn = Settings.readVibrationEnabled(prefs, res);
         mSoundOn = Settings.readKeypressSoundEnabled(prefs, res);
+        mCustomKeypressSoundsProfile = prefs.getInt(
+            Settings.PREF_CUSTOM_KEYPRESS_PROFILE,
+            Settings.DEFAULT_KEYPRESS_PROFILE
+        );
         mKeyPreviewPopupOn = Settings.readKeyPreviewPopupEnabled(prefs, res);
         mSlidingKeyInputPreviewEnabled = prefs.getBoolean(
-                DebugSettings.PREF_SLIDING_KEY_INPUT_PREVIEW, true);
+            DebugSettings.PREF_SLIDING_KEY_INPUT_PREVIEW,
+            true
+        );
         mShowsVoiceInputKey = true;
-        mIncludesOtherImesInLanguageSwitchList = Settings.ENABLE_SHOW_LANGUAGE_SWITCH_KEY_SETTINGS
-                ? prefs.getBoolean(Settings.PREF_INCLUDE_OTHER_IMES_IN_LANGUAGE_SWITCH_LIST, false)
+        mIncludesOtherImesInLanguageSwitchList =
+            Settings.ENABLE_SHOW_LANGUAGE_SWITCH_KEY_SETTINGS
+                ? prefs.getBoolean(
+                      Settings.PREF_INCLUDE_OTHER_IMES_IN_LANGUAGE_SWITCH_LIST,
+                      false
+                  )
                 : true /* forcibly */;
         mActionKeyId = ActionRegistry.INSTANCE.actionStringIdToIdx(
-                prefs.getString(
-                        Settings.PREF_ACTION_KEY_ID,
-                        RegistryKt.getDefaultActionKey()
-                ));
+            prefs.getString(
+                Settings.PREF_ACTION_KEY_ID,
+                RegistryKt.getDefaultActionKey()
+            )
+        );
         mShowsActionKey = mActionKeyId != -1;
-        mIsNumberRowEnabledByUser = prefs.getBoolean(Settings.PREF_ENABLE_NUMBER_ROW, false);
-        mIsNumberRowEnabled = mIsNumberRowEnabledByUser
-                || (inputAttributes.mIsPasswordField && !inputAttributes.mIsNumericalPasswordField)
-                || inputAttributes.mIsEmailField;
-        mUseLocalNumbers = !prefs.getBoolean(Settings.PREF_USE_WESTERN_NUMERALS, false);
-        mIsArrowRowEnabled = prefs.getBoolean(Settings.PREF_ENABLE_ARROW_ROW, false);
-        mIsUsingAlternativePeriodKey = prefs.getBoolean(Settings.PREF_ENABLE_ALT_PERIOD_KEY, false) && SettingsValues.altPeriodKeyAllowedForLocale(mLocale);
-        mUseDictionaryKeyBoosting = prefs.getBoolean(Settings.PREF_USE_DICT_KEY_BOOSTING, true);
-        mUseContactsDict = prefs.getBoolean(Settings.PREF_KEY_USE_CONTACTS_DICT, true);
-        mUsePersonalizedDicts = prefs.getBoolean(Settings.PREF_KEY_USE_PERSONALIZED_DICTS, true);
-        mUseDoubleSpacePeriod = prefs.getBoolean(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, true)
-                && inputAttributes.mIsGeneralTextInput;
-        mBlockPotentiallyOffensive = Settings.readBlockPotentiallyOffensive(prefs, res);
+        mIsNumberRowEnabledByUser = prefs.getBoolean(
+            Settings.PREF_ENABLE_NUMBER_ROW,
+            false
+        );
+        mIsNumberRowEnabled =
+            mIsNumberRowEnabledByUser ||
+            (inputAttributes.mIsPasswordField &&
+                !inputAttributes.mIsNumericalPasswordField) ||
+            inputAttributes.mIsEmailField;
+        mUseLocalNumbers = !prefs.getBoolean(
+            Settings.PREF_USE_WESTERN_NUMERALS,
+            false
+        );
+        mIsArrowRowEnabled = prefs.getBoolean(
+            Settings.PREF_ENABLE_ARROW_ROW,
+            false
+        );
+        mIsUsingAlternativePeriodKey =
+            prefs.getBoolean(Settings.PREF_ENABLE_ALT_PERIOD_KEY, false) &&
+            SettingsValues.altPeriodKeyAllowedForLocale(mLocale);
+        mUseDictionaryKeyBoosting = prefs.getBoolean(
+            Settings.PREF_USE_DICT_KEY_BOOSTING,
+            true
+        );
+        mUseContactsDict = prefs.getBoolean(
+            Settings.PREF_KEY_USE_CONTACTS_DICT,
+            true
+        );
+        mUsePersonalizedDicts = prefs.getBoolean(
+            Settings.PREF_KEY_USE_PERSONALIZED_DICTS,
+            true
+        );
+        mUseDoubleSpacePeriod =
+            prefs.getBoolean(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, true) &&
+            inputAttributes.mIsGeneralTextInput;
+        mBlockPotentiallyOffensive = Settings.readBlockPotentiallyOffensive(
+            prefs,
+            res
+        );
         mAutoCorrectEnabled = Settings.readAutoCorrectEnabled(prefs, res);
         final String autoCorrectionThresholdRawValue = mAutoCorrectEnabled
-                ? res.getString(R.string.auto_correction_threshold_mode_index_modest)
-                : res.getString(R.string.auto_correction_threshold_mode_index_off);
-        mTransformerPredictionEnabled = readTransformerPredictionEnabled(prefs, res);
-        mBigramPredictionEnabled = readBigramPredictionEnabled(prefs, res) || mTransformerPredictionEnabled;
-        mDoubleSpacePeriodTimeout = res.getInteger(R.integer.config_double_space_period_timeout);
-        mHasHardwareKeyboard = Settings.readHasHardwareKeyboard(res.getConfiguration());
-        mEnableMetricsLogging = prefs.getBoolean(Settings.PREF_ENABLE_METRICS_LOGGING, true);
+            ? res.getString(
+                  R.string.auto_correction_threshold_mode_index_modest
+              )
+            : res.getString(R.string.auto_correction_threshold_mode_index_off);
+        mTransformerPredictionEnabled = readTransformerPredictionEnabled(
+            prefs,
+            res
+        );
+        mBigramPredictionEnabled =
+            readBigramPredictionEnabled(prefs, res) ||
+            mTransformerPredictionEnabled;
+        mDoubleSpacePeriodTimeout = res.getInteger(
+            R.integer.config_double_space_period_timeout
+        );
+        mHasHardwareKeyboard = Settings.readHasHardwareKeyboard(
+            res.getConfiguration()
+        );
+        mEnableMetricsLogging = prefs.getBoolean(
+            Settings.PREF_ENABLE_METRICS_LOGGING,
+            true
+        );
         mScreenMetrics = Settings.readScreenMetrics(res);
 
-        mBackspaceDeletesInsertedText = prefs.getBoolean(Settings.PREF_BACKSPACE_DELETE_INSERTED_TEXT, true);
-        mBackspaceUndoesAutocorrect = prefs.getBoolean(Settings.PREF_BACKSPACE_UNDO_AUTOCORRECT, true);
+        mBackspaceDeletesInsertedText = prefs.getBoolean(
+            Settings.PREF_BACKSPACE_DELETE_INSERTED_TEXT,
+            true
+        );
+        mBackspaceUndoesAutocorrect = prefs.getBoolean(
+            Settings.PREF_BACKSPACE_UNDO_AUTOCORRECT,
+            true
+        );
 
-        mSpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE, Settings.SPACEBAR_MODE_SWIPE_CURSOR);
-        mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
-        mNumberRowMode = mIsNumberRowEnabledByUser ?
-                prefs.getInt(Settings.PREF_NUMBER_ROW_MODE, Settings.NUMBER_ROW_MODE_DEFAULT)
-                : Settings.NUMBER_ROW_MODE_DEFAULT;
-        mAltSpacesMode = inputAttributes.mIsEmailField ? Settings.SPACES_MODE_NONE : prefs.getInt(Settings.PREF_ALT_SPACES_MODE, Settings.DEFAULT_ALT_SPACES_MODE);
+        mSpacebarMode = prefs.getInt(
+            Settings.PREF_SPACEBAR_MODE,
+            Settings.SPACEBAR_MODE_SWIPE_CURSOR
+        );
+        mBackspaceMode = prefs.getInt(
+            Settings.PREF_BACKSPACE_MODE,
+            Settings.BACKSPACE_MODE_CHARACTERS
+        );
+        mNumberRowMode = mIsNumberRowEnabledByUser
+            ? prefs.getInt(
+                  Settings.PREF_NUMBER_ROW_MODE,
+                  Settings.NUMBER_ROW_MODE_DEFAULT
+              )
+            : Settings.NUMBER_ROW_MODE_DEFAULT;
+        mAltSpacesMode = inputAttributes.mIsEmailField
+            ? Settings.SPACES_MODE_NONE
+            : prefs.getInt(
+                  Settings.PREF_ALT_SPACES_MODE,
+                  Settings.DEFAULT_ALT_SPACES_MODE
+              );
 
-        mShouldShowLxxSuggestionUi = Settings.SHOULD_SHOW_LXX_SUGGESTION_UI
-                && prefs.getBoolean(DebugSettings.PREF_SHOULD_SHOW_LXX_SUGGESTION_UI, true);
+        mShouldShowLxxSuggestionUi =
+            Settings.SHOULD_SHOW_LXX_SUGGESTION_UI &&
+            prefs.getBoolean(
+                DebugSettings.PREF_SHOULD_SHOW_LXX_SUGGESTION_UI,
+                true
+            );
         // Compute other readable settings
         mKeyLongpressTimeout = Settings.readKeyLongpressTimeout(prefs, res);
-        mKeypressVibrationDuration = Settings.readKeypressVibrationDuration(prefs, res);
+        mKeypressVibrationDuration = Settings.readKeypressVibrationDuration(
+            prefs,
+            res
+        );
         mKeypressSoundVolume = Settings.readKeypressSoundVolume(prefs, res);
-        mKeyPreviewPopupDismissDelay = Settings.readKeyPreviewPopupDismissDelay(prefs, res);
+        mKeyPreviewPopupDismissDelay = Settings.readKeyPreviewPopupDismissDelay(
+            prefs,
+            res
+        );
         mEnableEmojiAltPhysicalKey = prefs.getBoolean(
-                Settings.PREF_ENABLE_EMOJI_ALT_PHYSICAL_KEY, true);
+            Settings.PREF_ENABLE_EMOJI_ALT_PHYSICAL_KEY,
+            true
+        );
         mShowAppIcon = Settings.readShowSetupWizardIcon(prefs, context);
-        mIsShowAppIconSettingInPreferences = prefs.contains(Settings.PREF_SHOW_SETUP_WIZARD_ICON);
-        mAutoCorrectionThreshold = readAutoCorrectionThreshold(res,
-                autoCorrectionThresholdRawValue);
+        mIsShowAppIconSettingInPreferences = prefs.contains(
+            Settings.PREF_SHOW_SETUP_WIZARD_ICON
+        );
+        mAutoCorrectionThreshold = readAutoCorrectionThreshold(
+            res,
+            autoCorrectionThresholdRawValue
+        );
         mPlausibilityThreshold = Settings.readPlausibilityThreshold(res);
         mGestureInputEnabled = Settings.readGestureInputEnabled(prefs, res);
-        mGestureTrailEnabled = prefs.getBoolean(Settings.PREF_GESTURE_PREVIEW_TRAIL, true);
-        mCloudSyncEnabled = prefs.getBoolean(LocalSettingsConstants.PREF_ENABLE_CLOUD_SYNC, false);
-        mAccount = prefs.getString(LocalSettingsConstants.PREF_ACCOUNT_NAME,
-                null /* default */);
-        mGestureFloatingPreviewTextEnabled = false && !mInputAttributes.mDisableGestureFloatingPreviewText
-                && prefs.getBoolean(Settings.PREF_GESTURE_FLOATING_PREVIEW_TEXT, true);
-        mAutoCorrectionEnabledPerUserSettings = mAutoCorrectEnabled
-                && !mInputAttributes.mInputTypeNoAutoCorrect;
-        mAutoCorrectionEnabledPerTextFieldSettings = !mInputAttributes.mInputTypeNoAutoCorrect;
+        mGestureTrailEnabled = prefs.getBoolean(
+            Settings.PREF_GESTURE_PREVIEW_TRAIL,
+            true
+        );
+        mCloudSyncEnabled = prefs.getBoolean(
+            LocalSettingsConstants.PREF_ENABLE_CLOUD_SYNC,
+            false
+        );
+        mAccount = prefs.getString(
+            LocalSettingsConstants.PREF_ACCOUNT_NAME,
+            null /* default */
+        );
+        mGestureFloatingPreviewTextEnabled =
+            false &&
+            !mInputAttributes.mDisableGestureFloatingPreviewText &&
+            prefs.getBoolean(Settings.PREF_GESTURE_FLOATING_PREVIEW_TEXT, true);
+        mAutoCorrectionEnabledPerUserSettings =
+            mAutoCorrectEnabled && !mInputAttributes.mInputTypeNoAutoCorrect;
+        mAutoCorrectionEnabledPerTextFieldSettings =
+            !mInputAttributes.mInputTypeNoAutoCorrect;
         mSuggestionsEnabledPerUserSettings = readSuggestionsEnabled(prefs);
         mIsInternal = Settings.isInternal(prefs);
         mHasCustomKeyPreviewAnimationParams = prefs.getBoolean(
-                DebugSettings.PREF_HAS_CUSTOM_KEY_PREVIEW_ANIMATION_PARAMS, false);
-        mHasKeyboardResize = prefs.getBoolean(DebugSettings.PREF_RESIZE_KEYBOARD, false);
-        mKeyboardHeightScale = Settings.readKeyboardHeight(prefs, DEFAULT_SIZE_SCALE);
+            DebugSettings.PREF_HAS_CUSTOM_KEY_PREVIEW_ANIMATION_PARAMS,
+            false
+        );
+        mHasKeyboardResize = prefs.getBoolean(
+            DebugSettings.PREF_RESIZE_KEYBOARD,
+            false
+        );
+        mKeyboardHeightScale = Settings.readKeyboardHeight(
+            prefs,
+            DEFAULT_SIZE_SCALE
+        );
         mKeyPreviewShowUpDuration = Settings.readKeyPreviewAnimationDuration(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_DURATION,
-                res.getInteger(R.integer.config_key_preview_show_up_duration));
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_DURATION,
+            res.getInteger(R.integer.config_key_preview_show_up_duration)
+        );
         mKeyPreviewDismissDuration = Settings.readKeyPreviewAnimationDuration(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_DISMISS_DURATION,
-                res.getInteger(R.integer.config_key_preview_dismiss_duration));
-        final float defaultKeyPreviewShowUpStartScale = ResourceUtils.getFloatFromFraction(
-                res, R.fraction.config_key_preview_show_up_start_scale);
-        final float defaultKeyPreviewDismissEndScale = ResourceUtils.getFloatFromFraction(
-                res, R.fraction.config_key_preview_dismiss_end_scale);
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_DISMISS_DURATION,
+            res.getInteger(R.integer.config_key_preview_dismiss_duration)
+        );
+        final float defaultKeyPreviewShowUpStartScale =
+            ResourceUtils.getFloatFromFraction(
+                res,
+                R.fraction.config_key_preview_show_up_start_scale
+            );
+        final float defaultKeyPreviewDismissEndScale =
+            ResourceUtils.getFloatFromFraction(
+                res,
+                R.fraction.config_key_preview_dismiss_end_scale
+            );
         mKeyPreviewShowUpStartXScale = Settings.readKeyPreviewAnimationScale(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_START_X_SCALE,
-                defaultKeyPreviewShowUpStartScale);
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_START_X_SCALE,
+            defaultKeyPreviewShowUpStartScale
+        );
         mKeyPreviewShowUpStartYScale = Settings.readKeyPreviewAnimationScale(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_START_Y_SCALE,
-                defaultKeyPreviewShowUpStartScale);
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_SHOW_UP_START_Y_SCALE,
+            defaultKeyPreviewShowUpStartScale
+        );
         mKeyPreviewDismissEndXScale = Settings.readKeyPreviewAnimationScale(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_X_SCALE,
-                defaultKeyPreviewDismissEndScale);
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_X_SCALE,
+            defaultKeyPreviewDismissEndScale
+        );
         mKeyPreviewDismissEndYScale = Settings.readKeyPreviewAnimationScale(
-                prefs, DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_Y_SCALE,
-                defaultKeyPreviewDismissEndScale);
+            prefs,
+            DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_Y_SCALE,
+            defaultKeyPreviewDismissEndScale
+        );
         mDisplayOrientation = res.getConfiguration().orientation;
         mAppWorkarounds = new AsyncResultHolder<>("AppWorkarounds");
-        final PackageInfo packageInfo = TargetPackageInfoGetterTask.getCachedPackageInfo(
-                mInputAttributes.mTargetApplicationPackageName);
+        final PackageInfo packageInfo =
+            TargetPackageInfoGetterTask.getCachedPackageInfo(
+                mInputAttributes.mTargetApplicationPackageName
+            );
         if (null != packageInfo) {
             mAppWorkarounds.set(new AppWorkaroundsUtils(packageInfo));
         } else {
-            new TargetPackageInfoGetterTask(context, mAppWorkarounds)
-                    .execute(mInputAttributes.mTargetApplicationPackageName);
+            new TargetPackageInfoGetterTask(context, mAppWorkarounds).execute(
+                mInputAttributes.mTargetApplicationPackageName
+            );
         }
     }
 
@@ -275,8 +412,11 @@ public class SettingsValues {
     }
 
     public boolean needsToLookupSuggestions() {
-        return mInputAttributes.mShouldShowSuggestions
-                && (mAutoCorrectionEnabledPerUserSettings || isSuggestionsEnabledPerUserSettings());
+        return (
+            mInputAttributes.mShouldShowSuggestions &&
+            (mAutoCorrectionEnabledPerUserSettings ||
+                isSuggestionsEnabledPerUserSettings())
+        );
     }
 
     public boolean isSuggestionsEnabledPerUserSettings() {
@@ -288,37 +428,42 @@ public class SettingsValues {
     }
 
     public boolean isWordSeparator(final int code) {
-        if(mInputAttributes.mIsEmailField) {
-            if(code == '.') return false;
-            if(code == '@') return true;
+        if (mInputAttributes.mIsEmailField) {
+            if (code == '.') return false;
+            if (code == '@') return true;
         }
         return mSpacingAndPunctuations.isWordSeparator(code);
     }
 
     public boolean isWordConnector(final int code) {
-        if(mInputAttributes.mIsEmailField) {
-            if(code == '.') return true;
-            if(code == '@') return false;
+        if (mInputAttributes.mIsEmailField) {
+            if (code == '.') return true;
+            if (code == '@') return false;
         }
         return mSpacingAndPunctuations.isWordConnector(code);
     }
 
     public boolean isWordCodePoint(final int code) {
-        if(mInputAttributes.mIsEmailField) {
-            if(code == '.') return true;
-            if(code == '@') return false;
+        if (mInputAttributes.mIsEmailField) {
+            if (code == '.') return true;
+            if (code == '@') return false;
         }
 
-        if(ScriptUtils2.isLetterDefinitelyIncompatibleForLocale(code, mLocale)) return false;
+        if (
+            ScriptUtils2.isLetterDefinitelyIncompatibleForLocale(code, mLocale)
+        ) return false;
 
         int type = Character.getType(code);
-        return Character.isLetter(code) || isWordConnector(code)
-                || Character.NON_SPACING_MARK == type
-                || Character.ENCLOSING_MARK == type
-                || Character.COMBINING_SPACING_MARK == type
-                // A digit can be a word codepoint because the user may have mistapped a number
-                // instead of a letter, in which case the digit should be considered part of a word.
-                || (Character.isDigit(code) && mIsNumberRowEnabled);
+        return (
+            Character.isLetter(code) ||
+            isWordConnector(code) ||
+            Character.NON_SPACING_MARK == type ||
+            Character.ENCLOSING_MARK == type ||
+            Character.COMBINING_SPACING_MARK == type ||
+            // A digit can be a word codepoint because the user may have mistapped a number
+            // instead of a letter, in which case the digit should be considered part of a word.
+            (Character.isDigit(code) && mIsNumberRowEnabled)
+        );
     }
 
     public boolean isUsuallyPrecededBySpace(final int code) {
@@ -334,7 +479,9 @@ public class SettingsValues {
     }
 
     public boolean isUsuallyFollowedBySpaceIffPrecededBySpace(final int code) {
-        return mSpacingAndPunctuations.isUsuallyFollowedBySpaceIffPrecededBySpace(code);
+        return mSpacingAndPunctuations.isUsuallyFollowedBySpaceIffPrecededBySpace(
+            code
+        );
     }
 
     public boolean shouldInsertSpacesAutomatically() {
@@ -350,51 +497,82 @@ public class SettingsValues {
     }
 
     public boolean isBeforeJellyBean() {
-        final AppWorkaroundsUtils appWorkaroundUtils
-                = mAppWorkarounds.get(null, TIMEOUT_TO_GET_TARGET_PACKAGE);
-        return null == appWorkaroundUtils ? false : appWorkaroundUtils.isBeforeJellyBean();
+        final AppWorkaroundsUtils appWorkaroundUtils = mAppWorkarounds.get(
+            null,
+            TIMEOUT_TO_GET_TARGET_PACKAGE
+        );
+        return null == appWorkaroundUtils
+            ? false
+            : appWorkaroundUtils.isBeforeJellyBean();
     }
 
     public boolean isBrokenByRecorrection() {
-        final AppWorkaroundsUtils appWorkaroundUtils
-                = mAppWorkarounds.get(null, TIMEOUT_TO_GET_TARGET_PACKAGE);
-        return null == appWorkaroundUtils ? false : appWorkaroundUtils.isBrokenByRecorrection();
+        final AppWorkaroundsUtils appWorkaroundUtils = mAppWorkarounds.get(
+            null,
+            TIMEOUT_TO_GET_TARGET_PACKAGE
+        );
+        return null == appWorkaroundUtils
+            ? false
+            : appWorkaroundUtils.isBrokenByRecorrection();
     }
 
-    private static final String SUGGESTIONS_VISIBILITY_HIDE_VALUE_OBSOLETE = "2";
+    private static final String SUGGESTIONS_VISIBILITY_HIDE_VALUE_OBSOLETE =
+        "2";
 
-    private static boolean readSuggestionsEnabled(final SharedPreferences prefs) {
+    private static boolean readSuggestionsEnabled(
+        final SharedPreferences prefs
+    ) {
         if (prefs.contains(Settings.PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE)) {
-            final boolean alwaysHide = SUGGESTIONS_VISIBILITY_HIDE_VALUE_OBSOLETE.equals(
-                    prefs.getString(Settings.PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE, null));
-            prefs.edit()
-                    .remove(Settings.PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE)
-                    .putBoolean(Settings.PREF_SHOW_SUGGESTIONS, !alwaysHide)
-                    .apply();
+            final boolean alwaysHide =
+                SUGGESTIONS_VISIBILITY_HIDE_VALUE_OBSOLETE.equals(
+                    prefs.getString(
+                        Settings.PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE,
+                        null
+                    )
+                );
+            prefs
+                .edit()
+                .remove(Settings.PREF_SHOW_SUGGESTIONS_SETTING_OBSOLETE)
+                .putBoolean(Settings.PREF_SHOW_SUGGESTIONS, !alwaysHide)
+                .apply();
         }
         return prefs.getBoolean(Settings.PREF_SHOW_SUGGESTIONS, true);
     }
 
-    private static boolean readBigramPredictionEnabled(final SharedPreferences prefs,
-            final Resources res) {
-        return prefs.getBoolean(Settings.PREF_BIGRAM_PREDICTIONS, res.getBoolean(
-                R.bool.config_default_next_word_prediction));
+    private static boolean readBigramPredictionEnabled(
+        final SharedPreferences prefs,
+        final Resources res
+    ) {
+        return prefs.getBoolean(
+            Settings.PREF_BIGRAM_PREDICTIONS,
+            res.getBoolean(R.bool.config_default_next_word_prediction)
+        );
     }
 
-    private static boolean readTransformerPredictionEnabled(final SharedPreferences prefs,
-            final Resources res) {
+    private static boolean readTransformerPredictionEnabled(
+        final SharedPreferences prefs,
+        final Resources res
+    ) {
         return prefs.getBoolean(Settings.PREF_KEY_USE_TRANSFORMER_LM, true);
     }
 
-    private static float readAutoCorrectionThreshold(final Resources res,
-            final String currentAutoCorrectionSetting) {
+    private static float readAutoCorrectionThreshold(
+        final Resources res,
+        final String currentAutoCorrectionSetting
+    ) {
         final String[] autoCorrectionThresholdValues = res.getStringArray(
-                R.array.auto_correction_threshold_values);
+            R.array.auto_correction_threshold_values
+        );
         // When autoCorrectionThreshold is greater than 1.0, it's like auto correction is off.
         final float autoCorrectionThreshold;
         try {
-            final int arrayIndex = Integer.parseInt(currentAutoCorrectionSetting);
-            if (arrayIndex >= 0 && arrayIndex < autoCorrectionThresholdValues.length) {
+            final int arrayIndex = Integer.parseInt(
+                currentAutoCorrectionSetting
+            );
+            if (
+                arrayIndex >= 0 &&
+                arrayIndex < autoCorrectionThresholdValues.length
+            ) {
                 final String val = autoCorrectionThresholdValues[arrayIndex];
                 if (FLOAT_MAX_VALUE_MARKER_STRING.equals(val)) {
                     autoCorrectionThreshold = Float.MAX_VALUE;
@@ -408,39 +586,62 @@ public class SettingsValues {
             }
         } catch (final NumberFormatException e) {
             // Whenever the threshold settings are correct, never come here.
-            Log.w(TAG, "Cannot load auto correction threshold setting."
-                    + " currentAutoCorrectionSetting: " + currentAutoCorrectionSetting
-                    + ", autoCorrectionThresholdValues: "
-                    + Arrays.toString(autoCorrectionThresholdValues), e);
+            Log.w(
+                TAG,
+                "Cannot load auto correction threshold setting." +
+                    " currentAutoCorrectionSetting: " +
+                    currentAutoCorrectionSetting +
+                    ", autoCorrectionThresholdValues: " +
+                    Arrays.toString(autoCorrectionThresholdValues),
+                e
+            );
             return Float.MAX_VALUE;
         }
         return autoCorrectionThreshold;
     }
 
-    private static boolean needsToShowVoiceInputKey(final SharedPreferences prefs,
-            final Resources res) {
+    private static boolean needsToShowVoiceInputKey(
+        final SharedPreferences prefs,
+        final Resources res
+    ) {
         // Migrate preference from {@link Settings#PREF_VOICE_MODE_OBSOLETE} to
         // {@link Settings#PREF_VOICE_INPUT_KEY}.
         if (prefs.contains(Settings.PREF_VOICE_MODE_OBSOLETE)) {
-            final String voiceModeMain = res.getString(R.string.voice_mode_main);
+            final String voiceModeMain = res.getString(
+                R.string.voice_mode_main
+            );
             final String voiceMode = prefs.getString(
-                    Settings.PREF_VOICE_MODE_OBSOLETE, voiceModeMain);
-            final boolean shouldShowVoiceInputKey = voiceModeMain.equals(voiceMode);
-            prefs.edit()
-                    .putBoolean(Settings.PREF_VOICE_INPUT_KEY, shouldShowVoiceInputKey)
-                    // Remove the obsolete preference if exists.
-                    .remove(Settings.PREF_VOICE_MODE_OBSOLETE)
-                    .apply();
+                Settings.PREF_VOICE_MODE_OBSOLETE,
+                voiceModeMain
+            );
+            final boolean shouldShowVoiceInputKey = voiceModeMain.equals(
+                voiceMode
+            );
+            prefs
+                .edit()
+                .putBoolean(
+                    Settings.PREF_VOICE_INPUT_KEY,
+                    shouldShowVoiceInputKey
+                )
+                // Remove the obsolete preference if exists.
+                .remove(Settings.PREF_VOICE_MODE_OBSOLETE)
+                .apply();
         }
         return prefs.getBoolean(Settings.PREF_VOICE_INPUT_KEY, true);
     }
 
     private static boolean altPeriodKeyAllowedForLocale(Locale locale) {
         String lang = locale.getLanguage();
-        if(lang.equals("ar") || lang.equals("hi") || lang.equals("ckb") || lang.equals("fa") || lang.equals("new") || lang.equals("hy") || lang.equals("my"))
-            return false;
-        else
-            return true;
+        if (
+            lang.equals("ar") ||
+            lang.equals("hi") ||
+            lang.equals("ckb") ||
+            lang.equals("fa") ||
+            lang.equals("new") ||
+            lang.equals("hy") ||
+            lang.equals("my")
+        ) return false;
+        else return true;
     }
 
     public String dump() {

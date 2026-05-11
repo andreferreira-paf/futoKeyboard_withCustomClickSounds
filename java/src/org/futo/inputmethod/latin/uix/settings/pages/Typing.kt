@@ -620,6 +620,41 @@ val LongPressMenu = UserSettingsMenu(
 )
 
 @Composable
+private fun SoundProfileSettingItem() {
+    val soundProfile = useSharedPrefsInt(Settings.PREF_CUSTOM_KEYPRESS_PROFILE, Settings.DEFAULT_KEYPRESS_PROFILE)
+
+    val soundProfileList = mapOf(
+        Settings.DEFAULT_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_default),
+        Settings.BLUE_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_blue),
+        Settings.RED_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_red)//,
+/*  UNCOMMENT WHEN READY
+        Settings.BLACK_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_black)
+        Settings.TYPEWRITER_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_typewriter)
+        Settings.GREENTERMINAL_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_greenTerminal)
+        Settings.AHEGAO_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_ahegao)
+        Settings.SOULS_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_souls)
+        Settings.ODETOJOY_KEYPRESS_PROFILE to stringResource(R.string.sound_profile_ode)
+*/
+    )
+
+    DropDownPickerSettingItem(
+        label = stringResource(R.string.pref_sound_profile_title),
+        options = soundProfileList.keys.toList(),
+        selection = soundProfile.value,    // Currently selected key (e.g., "blue")
+        onSet = {
+            soundProfile.setValue(it)
+            // Optional: Trigger sound engine reload here if needed immediately
+        },
+        getDisplayName = {
+            soundProfileList[it] ?: "?" // Efficiently look up pre-resolved display name
+        },
+        icon = {
+            Icon(painterResource(R.drawable.settings), contentDescription = null)
+        }
+    )
+}
+
+@Composable
 private fun AutoSpacesSetting() {
     val altSpacesMode = useSharedPrefsInt(Settings.PREF_ALT_SPACES_MODE, Settings.DEFAULT_ALT_SPACES_MODE)
     val autoSpaceModes = mapOf(
@@ -905,6 +940,18 @@ val TypingSettingsMenu = UserSettingsMenu(
             title = R.string.sound_on_keypress,
             key = Settings.PREF_SOUND_ON,
             default = {booleanResource(R.bool.config_default_sound_enabled)}
+        ),
+        UserSetting(
+            name = R.string.pref_sound_profile_title,
+            visibilityCheck = {
+                LocalSharedPrefsCache.current!!.currSharedPrefs.getBoolean(
+                    Settings.PREF_SOUND_ON,
+                    booleanResource(R.bool.config_default_sound_enabled)
+                )
+            },
+            component = {
+                SoundProfileSettingItem()
+            }
         ),
         UserSetting(
             name = R.string.typing_settings_keypress_sound_volume,
