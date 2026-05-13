@@ -53,7 +53,6 @@ public final class AudioAndHapticFeedbackManager {
     private boolean mSoundOn;
     // New variables for custom sound engine
     private SoundPool mSoundPool;
-    private HashMap<Integer, Integer> mSoundMap = new HashMap<>();
     private int mLastSelectedProfile;
     private boolean mSoundsLoaded;
     private Context mContext;
@@ -65,6 +64,7 @@ public final class AudioAndHapticFeedbackManager {
     private int spaceSoundId;
     private int[] keypressSoundId;
     private int numberOfUniqueSounds;
+    private int mNextSoundIndex = 0; // Tracks the next sound to play
 
     private static final AudioAndHapticFeedbackManager sInstance =
         new AudioAndHapticFeedbackManager();
@@ -119,7 +119,8 @@ public final class AudioAndHapticFeedbackManager {
                         ")"
                 );
                 if (mLoadedSoundCount >= mExpectedSoundCount) {
-                    mapAllSounds();
+                    mNextSoundIndex = 0;
+                    mSoundsLoaded = true;
                     Log.i(TAG, "All sounds loaded successfully");
                 }
             } else {
@@ -131,77 +132,8 @@ public final class AudioAndHapticFeedbackManager {
         });
     }
 
-    private void mapAllSounds() {
-        Resources res = mContext.getResources();
-        int startCharacterCode = res.getInteger(
-            R.integer.starting_latin_character_code
-        );
-        int endCharacterCode = res.getInteger(
-            R.integer.ending_latin_character_code
-        );
-
-        //MAPPING LATIN CHARACTER CODES
-        for (
-            int characterCode = startCharacterCode;
-            characterCode <= endCharacterCode;
-            characterCode++
-        ) {
-            int soundIndex =
-                (characterCode - startCharacterCode) % numberOfUniqueSounds; // cycles automatically
-            Log.i(
-                TAG,
-                "Mapping code: " +
-                    characterCode +
-                    " to " +
-                    keypressSoundId[soundIndex]
-            );
-            mSoundMap.put(characterCode, keypressSoundId[soundIndex]);
-        }
-        //MAPPING OUTLIER CODES
-        int[] specialCharacterCodes = res.getIntArray(
-            R.array.special_character_codes_outside_latin_range
-        );
-        for (
-            int specialCharacterIndex = 0;
-            specialCharacterIndex < specialCharacterCodes.length;
-            specialCharacterIndex++
-        ) {
-            int soundIndex = specialCharacterIndex % numberOfUniqueSounds; // cycles automatically
-            Log.i(
-                TAG,
-                "Mapping code: " +
-                    specialCharacterCodes[specialCharacterIndex] +
-                    " to " +
-                    keypressSoundId[soundIndex]
-            );
-            mSoundMap.put(
-                specialCharacterCodes[specialCharacterIndex],
-                keypressSoundId[soundIndex]
-            );
-        }
-        //  These have to be Mapped AFTER all the others because these
-        //  are actually being REmapped, i.e. they were mapped to soundIds
-        //  in the latin for-loop above, but I want to remap them to give them
-        //  their own special flavour.
-        //  You might be asking: Why not map them correctly to begin with
-        //  and avoid a remap?
-        //  My answer: I would have to put an if-statement in the for-loop just
-        //  for these special cases, and that seems costly. However, remapping
-        //  costs almost nothing...
-        mSoundMap.put(Constants.CODE_DELETE, deleteSoundId);
-        mSoundMap.put(Constants.CODE_ENTER, enterSoundId);
-        mSoundMap.put(Constants.CODE_SPACE, spaceSoundId);
-
-        mSoundsLoaded = true;
-    }
-
     private void loadSoundsForCurrentProfile() {
-        if (mSoundPool != null) {
-            for (int soundId : mSoundMap.values()) {
-                mSoundPool.unload(soundId);
-            }
-        }
-        mSoundMap.clear();
+        mNextSoundIndex = 0;
         mSoundsLoaded = false;
         mExpectedSoundCount = 0;
         mLoadedSoundCount = 0;
@@ -210,7 +142,18 @@ public final class AudioAndHapticFeedbackManager {
             "Loading sounds for profile: " +
                 mSettingsValues.mCustomKeypressSoundsProfile
         );
+        // 2. Unload existing sounds from the pool to free memory
+        if (mSoundPool != null) {
+            if (deleteSoundId != 0) mSoundPool.unload(deleteSoundId);
+            if (enterSoundId != 0) mSoundPool.unload(enterSoundId);
+            if (spaceSoundId != 0) mSoundPool.unload(spaceSoundId);
 
+            if (keypressSoundId != null) {
+                for (int soundId : keypressSoundId) {
+                    if (soundId != 0) mSoundPool.unload(soundId);
+                }
+            }
+        }
         try {
             Resources res = mContext.getResources();
             int deleteSoundResId = 0;
@@ -269,14 +212,13 @@ public final class AudioAndHapticFeedbackManager {
 
             keypressSoundId = new int[numberOfUniqueSounds];
             int currentIndex = 0;
-            for (int soundResId : keypressSoundResIds) {
-                Log.i(TAG, "Loading sound: " + soundResId);
-                keypressSoundId[currentIndex] = mSoundPool.load(
+            for (int i = 0; i < keypressSoundResIds.length; i++) {
+                Log.i(TAG, "Loading sound: " + keypressSoundResIds[i]);
+                keypressSoundId[i] = mSoundPool.load(
                     mContext,
-                    soundResId,
+                    keypressSoundResIds[i],
                     1
                 );
-                currentIndex += 1;
             }
         } catch (Resources.NotFoundException e) {
             Log.e(
@@ -330,18 +272,29 @@ public final class AudioAndHapticFeedbackManager {
     }
 
     public void performAudioFeedback(final int code) {
-        Log.d(
-            TAG,
-            "performAudioFeedback - code: " +
-                code +
-                ", mSoundOn: " +
-                mSettingsValues.mSoundOn
-        );
         if (!mSoundOn) {
             return;
         }
+
         if (mSoundsLoaded) {
-            int soundId = mSoundMap.getOrDefault(code, 0);
+            int soundId = 0;
+
+            // Check for special functional keys first
+            if (code == Constants.CODE_DELETE) {
+                soundId = deleteSoundId;
+            } else if (code == Constants.CODE_ENTER) {
+                soundId = enterSoundId;
+            } else if (code == Constants.CODE_SPACE) {
+                soundId = spaceSoundId;
+            } else if (keypressSoundId != null && keypressSoundId.length > 0) {
+                // Sequential logic for all other keys
+                soundId = keypressSoundId[mNextSoundIndex];
+
+                // Advance the index and wrap around using modulo
+                mNextSoundIndex =
+                    (mNextSoundIndex + 1) % keypressSoundId.length;
+            }
+
             if (soundId != 0) {
                 mSoundPool.play(
                     soundId,
@@ -352,15 +305,9 @@ public final class AudioAndHapticFeedbackManager {
                     1.0f
                 );
                 return;
-            } else {
-                Log.e(TAG, "Sound Id is 0 but should not be!");
             }
-        } else {
-            Log.w(
-                TAG,
-                "Custom soundId not found or failed to load for code: " + code
-            );
         }
+
         // if mAudioManager is null, we can't play a sound anyway, so return
         if (mAudioManager == null) {
             return;
@@ -431,7 +378,6 @@ public final class AudioAndHapticFeedbackManager {
             mSoundPool.release();
             mSoundPool = null;
         }
-        mSoundMap.clear();
         mSoundsLoaded = false;
     }
 }
