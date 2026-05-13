@@ -280,19 +280,26 @@ public final class AudioAndHapticFeedbackManager {
             int soundId = 0;
 
             // Check for special functional keys first
-            if (code == Constants.CODE_DELETE) {
-                soundId = deleteSoundId;
-            } else if (code == Constants.CODE_ENTER) {
-                soundId = enterSoundId;
-            } else if (code == Constants.CODE_SPACE) {
-                soundId = spaceSoundId;
-            } else if (keypressSoundId != null && keypressSoundId.length > 0) {
-                // Sequential logic for all other keys
-                soundId = keypressSoundId[mNextSoundIndex];
+            switch (code) {
+                case Constants.CODE_DELETE:
+                    soundId = deleteSoundId;
+                    break;
+                case Constants.CODE_ENTER:
+                    soundId = enterSoundId;
+                    break;
+                case Constants.CODE_SPACE:
+                    soundId = spaceSoundId;
+                    break;
+                default:
+                    if (keypressSoundId != null && keypressSoundId.length > 0) {
+                        soundId = keypressSoundId[mNextSoundIndex];
 
-                // Advance the index and wrap around using modulo
-                mNextSoundIndex =
-                    (mNextSoundIndex + 1) % keypressSoundId.length;
+                        mNextSoundIndex++;
+                        if (mNextSoundIndex >= keypressSoundId.length) {
+                            mNextSoundIndex = 0;
+                        }
+                    }
+                    break;
             }
 
             if (soundId != 0) {
