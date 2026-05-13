@@ -107,6 +107,183 @@
     </integer-array>-->
 
 
+    <!--TYPEWRITER SOUND EFFECTS (UNCOMMENT WHEN READY)
+        <integer-array name="typewriter_keypress_sound_res_ids">
+            <item>@raw/typewriter_keypress_0</item>
+            <item>@raw/typewriter_keypress_1</item>
+            <item>@raw/typwriter_keypress_2</item>
+            <item>@raw/typwriter_keypress_3</item>
+            <item>@raw/typwriter_keypress_4</item>
+            <item>@raw/typwriter_keypress_5</item>
+            <item>@raw/typwriter_keypress_6</item>
+            <item>@raw/typwriter_keypress_7</item>
+            <item>@raw/typwriter_keypress_8</item>
+            <item>@raw/typwriter_keypress_9</item>
+            <item>@raw/typwriter_keypress_10</item>
+            <item>@raw/typwriter_keypress_11</item>
+            <item>@raw/typwriter_keypress_12</item>
+            <item>@raw/typwriter_keypress_13</item>
+            <item>@raw/typwriter_keypress_14</item>
+            <item>@raw/typwriter_keypress_15</item>
+            <item>@raw/typwriter_keypress_16</item>
+            <item>@raw/typwriter_keypress_17</item>
+            <item>@raw/typwriter_keypress_18</item>
+            <item>@raw/typwriter_keypress_19</item>
+            <item>@raw/typwriter_keypress_20</item>
+            <item>@raw/typwriter_keypress_21</item>
+            <item>@raw/typwriter_keypress_22</item>
+            <item>@raw/typwriter_keypress_23</item>
+            <item>@raw/typwriter_keypress_24</item>
+            <item>@raw/typwriter_keypress_25</item>
+        </integer-array>
+        <integer-array name ="typwriter_special_sound_res_ids">
+            <item>@raw/typwriter_delete</item>
+            <item>@raw/typewriter_space</item>
+            <item>@raw/typewriter_enter</item>
+        </integer-array>-->
+
+        <!--GREENTEMRINAL SWITCHES SOUND EFFECTS (UNCOMMENT WHEN READY)
+            <integer-array name="greenterminal_keypress_sound_res_ids">
+                <item>@raw/greenterminal_keypress_0</item>
+                <item>@raw/greenterminal_keypress_1</item>
+                <item>@raw/greenterminal_keypress_2</item>
+                <item>@raw/greenterminal_keypress_3</item>
+                <item>@raw/greenterminal_keypress_4</item>
+                <item>@raw/greenterminal_keypress_5</item>
+                <item>@raw/greenterminal_keypress_6</item>
+                <item>@raw/greenterminal_keypress_7</item>
+                <item>@raw/greenterminal_keypress_8</item>
+                <item>@raw/greenterminal_keypress_9</item>
+                <item>@raw/greenterminal_keypress_10</item>
+                <item>@raw/greenterminal_keypress_11</item>
+                <item>@raw/greenterminal_keypress_12</item>
+                <item>@raw/greenterminal_keypress_13</item>
+                <item>@raw/greenterminal_keypress_14</item>
+                <item>@raw/greenterminal_keypress_15</item>
+                <item>@raw/greenterminal_keypress_16</item>
+                <item>@raw/greenterminal_keypress_17</item>
+                <item>@raw/greenterminal_keypress_18</item>
+                <item>@raw/greenterminal_keypress_19</item>
+                <item>@raw/greenterminal_keypress_20</item>
+                <item>@raw/greenterminal_keypress_21</item>
+                <item>@raw/greenterminal_keypress_22</item>
+                <item>@raw/greenterminal_keypress_23</item>
+                <item>@raw/greenterminal_keypress_24</item>
+                <item>@raw/greenterminal_keypress_25</item>
+            </integer-array>
+            <integer-array name ="greenterminal_special_sound_res_ids">
+                <item>@raw/greenterminal_delete</item>
+                <item>@raw/greenterminal_space</item>
+                <item>@raw/greenterminal_enter</item>
+            </integer-array>-->
+
+
+            <!--AHEGAO SWITCHES SOUND EFFECTS (UNCOMMENT WHEN READY)
+                <integer-array name="ahegao_keypress_sound_res_ids">
+                    <item>@raw/ahegao_keypress_0</item>
+                    <item>@raw/ahegao_keypress_1</item>
+                    <item>@raw/ahegao_keypress_2</item>
+                    <item>@raw/ahegao_keypress_3</item>
+                    <item>@raw/ahegao_keypress_4</item>
+                    <item>@raw/ahegao_keypress_5</item>
+                    <item>@raw/ahegao_keypress_6</item>
+                    <item>@raw/ahegao_keypress_7</item>
+                    <item>@raw/ahegao_keypress_8</item>
+                    <item>@raw/ahegao_keypress_9</item>
+                    <item>@raw/ahegao_keypress_10</item>
+                    <item>@raw/ahegao_keypress_11</item>
+                    <item>@raw/ahegao_keypress_12</item>
+                    <item>@raw/ahegao_keypress_13</item>
+                    <item>@raw/ahegao_keypress_14</item>
+                    <item>@raw/ahegao_keypress_15</item>
+                    <item>@raw/ahegao_keypress_16</item>
+                    <item>@raw/ahegao_keypress_17</item>
+                    <item>@raw/ahegao_keypress_18</item>
+                    <item>@raw/ahegao_keypress_19</item>
+                    <item>@raw/ahegao_keypress_20</item>
+                    <item>@raw/ahegao_keypress_21</item>
+                    <item>@raw/ahegao_keypress_22</item>
+                    <item>@raw/ahegao_keypress_23</item>
+                    <item>@raw/ahegao_keypress_24</item>
+                    <item>@raw/ahegao_keypress_25</item>
+                </integer-array>
+                <integer-array name ="ahegao_special_sound_res_ids">
+                    <item>@raw/ahegao_delete</item>
+                    <item>@raw/ahegao_space</item>
+                    <item>@raw/ahegao_enter</item>
+                </integer-array>-->
+
+
+                <!--SOULS SOUND EFFECTS (UNCOMMENT WHEN READY)
+                    <integer-array name="souls_keypress_sound_res_ids">
+                        <item>@raw/souls_keypress_0</item>
+                        <item>@raw/souls_keypress_1</item>
+                        <item>@raw/souls_keypress_2</item>
+                        <item>@raw/souls_keypress_3</item>
+                        <item>@raw/souls_keypress_4</item>
+                        <item>@raw/souls_keypress_5</item>
+                        <item>@raw/souls_keypress_6</item>
+                        <item>@raw/souls_keypress_7</item>
+                        <item>@raw/souls_keypress_8</item>
+                        <item>@raw/souls_keypress_9</item>
+                        <item>@raw/souls_keypress_10</item>
+                        <item>@raw/souls_keypress_11</item>
+                        <item>@raw/souls_keypress_12</item>
+                        <item>@raw/souls_keypress_13</item>
+                        <item>@raw/souls_keypress_14</item>
+                        <item>@raw/souls_keypress_15</item>
+                        <item>@raw/souls_keypress_16</item>
+                        <item>@raw/souls_keypress_17</item>
+                        <item>@raw/souls_keypress_18</item>
+                        <item>@raw/souls_keypress_19</item>
+                        <item>@raw/souls_keypress_20</item>
+                        <item>@raw/souls_keypress_21</item>
+                        <item>@raw/souls_keypress_22</item>
+                        <item>@raw/souls_keypress_23</item>
+                        <item>@raw/souls_keypress_24</item>
+                        <item>@raw/souls_keypress_25</item>
+                    </integer-array>
+                    <integer-array name ="souls_special_sound_res_ids">
+                        <item>@raw/souls_delete</item>
+                        <item>@raw/souls_space</item>
+                        <item>@raw/souls_enter</item>
+                    </integer-array>-->
+
+                    <!--ODETOJOY SOUND EFFECTS (UNCOMMENT WHEN READY)
+                        <integer-array name="odetojoy_keypress_sound_res_ids">
+                            <item>@raw/odetojoy_keypress_0</item>
+                            <item>@raw/odetojoy_keypress_1</item>
+                            <item>@raw/odetojoy_keypress_2</item>
+                            <item>@raw/odetojoy_keypress_3</item>
+                            <item>@raw/odetojoy_keypress_4</item>
+                            <item>@raw/odetojoy_keypress_5</item>
+                            <item>@raw/odetojoy_keypress_6</item>
+                            <item>@raw/odetojoy_keypress_7</item>
+                            <item>@raw/odetojoy_keypress_8</item>
+                            <item>@raw/odetojoy_keypress_9</item>
+                            <item>@raw/odetojoy_keypress_10</item>
+                            <item>@raw/odetojoy_keypress_11</item>
+                            <item>@raw/odetojoy_keypress_12</item>
+                            <item>@raw/odetojoy_keypress_13</item>
+                            <item>@raw/odetojoy_keypress_14</item>
+                            <item>@raw/odetojoy_keypress_15</item>
+                            <item>@raw/odetojoy_keypress_16</item>
+                            <item>@raw/odetojoy_keypress_17</item>
+                            <item>@raw/odetojoy_keypress_18</item>
+                            <item>@raw/odetojoy_keypress_19</item>
+                            <item>@raw/odetojoy_keypress_20</item>
+                            <item>@raw/odetojoy_keypress_21</item>
+                            <item>@raw/odetojoy_keypress_22</item>
+                            <item>@raw/odetojoy_keypress_23</item>
+                            <item>@raw/odetojoy_keypress_24</item>
+                            <item>@raw/odetojoy_keypress_25</item>
+                        </integer-array>
+                        <integer-array name ="odetojoy_special_sound_res_ids">
+                            <item>@raw/odetojoy_delete</item>
+                            <item>@raw/odetojoy_space</item>
+                            <item>@raw/odetojoy_enter</item>
+                        </integer-array>-->
+
 <!--NO sound ids after this point,
 these are data used by the new audio related code -->
 <!-- Special Characters' Codes -->

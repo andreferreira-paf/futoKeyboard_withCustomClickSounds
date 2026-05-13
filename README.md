@@ -5,22 +5,27 @@ This is a fork of the futo keyboard that adds the ability to use custom sounds f
 Having users add their OWN custom sounds falls outside the scope of this project (at least for now), though that would be so effing cool, bro. For real for real. 
 
 
-### Where Are the Sound Files From?
+## Where Are the Sound Files From?
 Most sounds are taken under the [MIT license](https://opensource.org/license/mit), from this project: [mechvibes](https://github.com/hainguyents13/mechvibes-dx).
-Give them your support [here](https://mechvibes.com/support-me/). Individual sounds have been cut from the long files and stripped of metadata to make them as small as possible. For example the red profile, which has 30 unique sounds, costs only 397 {continue working here}
+Give them your support [here](https://mechvibes.com/support-me/). Individual sounds have been cut from the long files and stripped of metadata to make them as small as possible. For example the red profile, which has 29 unique sounds, costs only 397kb of diskspace.
 
-#### Links for sound Sources
-##### CherryMX (from [mechvibes](https://github.com/hainguyents13/mechvibes-dx))
+### Sounds and Sources
+#### CherryMX (from [mechvibes](https://github.com/hainguyents13/mechvibes-dx))
 - [CherryMX BLUE Switches](https://mechvibes.com/sound-packs/sound-pack-1200000000003/dist/cherrymx-blue-abs.zip) (by Mechvibes Team, edited by André Ferreira)
 - [CherryMX RED Switches](https://mechvibes.com/sound-packs/sound-pack-1200000000007/dist/cherrymx-red-abs.zip) (by Mechvibes Team, edited by André Ferreira)
+- [CherryMX BLACK Switches](https://mechvibes.com/sound-packs/sound-pack-1200000000001/)
+#### Pop Culture (video games etc.)
+- [Fallout Terminal](https://mechvibes.com/sound-packs/custom-sound-pack-1203000000042/)
+- [Ahegao](https://mechvibes.com/sound-packs/custom-sound-pack-1203000000025/)
+-
+- [Typewriter](https://mechvibes.com/sound-packs/custom-sound-pack-1203000000080/)
 - Other sound profiles will be slowly added over time from the [mechvibes](https://github.com/hainguyents13/mechvibes-dx) project. Please go support them [here](https://mechvibes.com/support-me/).
+- 
 
-
-### Known Issue(s):
+## Known Issue(s):
 - Only latin characters are supported for now, i.e. Cyrillic, Japanese, Korean, etc. are not supported.
 
-
-### Building
+## Building
 
 When cloning the repository, you must perform a recursive clone to fetch all dependencies:
 ```
