@@ -1,6 +1,7 @@
 package org.futo.inputmethod.engine.general
 
 import android.os.Build
+import android.os.Looper
 import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -15,7 +16,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-
 import org.futo.inputmethod.annotations.UsedForTesting
 import org.futo.inputmethod.engine.ExpandableSuggestionBarConfiguration
 import org.futo.inputmethod.engine.GlobalIMEMessage
@@ -27,6 +27,7 @@ import org.futo.inputmethod.event.Event
 import org.futo.inputmethod.event.InputTransaction
 import org.futo.inputmethod.keyboard.KeyboardSwitcher
 import org.futo.inputmethod.latin.BuildConfig
+import org.futo.inputmethod.latin.Dictionary
 import org.futo.inputmethod.latin.DictionaryFacilitator
 import org.futo.inputmethod.latin.DictionaryFacilitatorProvider
 import org.futo.inputmethod.latin.NgramContext
@@ -92,6 +93,11 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
             override fun onUpdateMainDictionaryAvailability(isMainDictionaryAvailable: Boolean) {
                 helper.updateGestureAvailability(isGestureHandlingAvailable())
                 updateSuggestions(SuggestedWords.INPUT_STYLE_TYPING)
+
+                dictionaryFacilitator.updateSwipeLayoutAndDictsIfNeeded(
+                    Settings.getInstance().current,
+                    helper.keyboardSwitcher.keyboard
+                )
             }
         }
 
@@ -132,6 +138,9 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
         blockOffensive: Boolean,
         importance: Int
     ) {
+        val isWordBlacklisted = SuggestionBlacklist.getCapitalVariants(word, settings.current.mLocale).any { !suggestionBlacklist.isWordOk(it) }
+        if(isWordBlacklisted) return
+
         dictionaryFacilitator.addToUserHistory(
             word, wasCapitalized,
             ngramContext, timestamp,
@@ -215,8 +224,6 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
                 }
             }
         }
-
-        blacklist.init()
     }
 
     override fun onDestroy() {
@@ -307,6 +314,8 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
     private fun onEventInternal(event: Event, ignoreSuggestionUpdate: Boolean = false) {
         helper.requestCursorUpdate()
 
+        val cursorBefore = inputLogic.mConnection.mExpectedSelStart
+
         val inputTransaction = when (event.eventType) {
             Event.EVENT_TYPE_INPUT_KEYPRESS,
             Event.EVENT_TYPE_INPUT_KEYPRESS_RESUMED -> {
@@ -363,6 +372,10 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
 
         inputLogic.mConnection.send()
 
+        val cursorAfter = inputLogic.mConnection.mExpectedSelStart
+
+        inputLogic.afterEventCursorDelta(cursorBefore, cursorAfter - cursorBefore)
+
         when(inputTransaction?.requiredShiftUpdate) {
             InputTransaction.SHIFT_UPDATE_LATER,
             InputTransaction.SHIFT_UPDATE_NOW ->
@@ -388,6 +401,13 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
         suggestedWords: SuggestedWords,
         inputStyle: Int,
         sequenceNumber: Int
+    ) = onGetSuggestedWordsInternal(suggestedWords, inputStyle, sequenceNumber, true)
+
+    private fun onGetSuggestedWordsInternal(
+        suggestedWords: SuggestedWords,
+        inputStyle: Int,
+        sequenceNumber: Int,
+        swipeDistinct: Boolean = true
     ) {
         if(sequenceNumber < sequenceId.get() && inputStyle != SuggestedWords.INPUT_STYLE_TAIL_BATCH) {
             return
@@ -400,22 +420,50 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
             else -> suggestedWords
         }
 
-        val words = unfilteredWords?.let { blacklist.filterBlacklistedSuggestions(it) } ?: SuggestedWords.getEmptyInstance()
+        val words = unfilteredWords?.let { suggestionBlacklist.filterBlacklistedSuggestions(it) }
+            ?: SuggestedWords.getEmptyInstance()
+
+
+        // If any blacklisted learned words are here, we must unlearn them
+        val wordsToUnlearn = unfilteredWords.mSuggestedWordInfoList
+            .filter { it.mSourceDict?.mDictType == Dictionary.TYPE_USER_HISTORY }
+            .filterNot { suggestionBlacklist.isSuggestedWordOk(it) }
+        wordsToUnlearn.forEach {
+            removeFromHistory(
+                it.mWord,
+                NgramContext.EMPTY_PREV_WORDS_INFO,
+                -1,
+                Constants.NOT_A_CODE
+            )
+        }
 
         showSuggestionStrip(words)
         when(inputStyle) {
-            SuggestedWords.INPUT_STYLE_TAIL_BATCH ->
-                inputLogic.onUpdateTailBatchInputCompleted(
-                    settings.current,
-                    words,
-                    helper.keyboardSwitcher
-                )
+            SuggestedWords.INPUT_STYLE_TAIL_BATCH -> {
+                val updateBatch = {
+                    inputLogic.onUpdateTailBatchInputCompleted(
+                        settings.current,
+                        words,
+                        helper.keyboardSwitcher,
+                        swipeDistinct
+                    )
+
+                    if(settings.current.mVibrateOn) {
+                        helper.keyboardSwitcher.mainKeyboardView?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY_RELEASE)
+                    }
+                }
+                if(Looper.myLooper() != Looper.getMainLooper()) {
+                    helper.lifecycleScope.launch(Dispatchers.Main) { updateBatch() }
+                } else {
+                    updateBatch()
+                }
+            }
         }
     }
 
     var updateSuggestionJob: Job? = null
     var lmUpdateJob: Job? = null
-    private fun updateSuggestionsDictionaryInternal(inputStyle: Int, sequenceNumber: Int) {
+    private suspend fun updateSuggestionsDictionaryInternal(inputStyle: Int, sequenceNumber: Int) {
         // This method returns null for us if LM is disabled
         val predictionInputValues = languageModelFacilitator.makePredictionInputValues(inputStyle)
 
@@ -452,7 +500,6 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
             ) { suggestedWords -> dictResult = suggestedWords }
         }
 
-        @Suppress("KotlinConstantConditions")
         when {
             !lmResult.isNullOrEmpty() && dictResult != null && predictionInputValues != null -> {
                 val processed = languageModelFacilitator.processAndMergeSuggestions(
@@ -654,7 +701,7 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
                 ignoreSuggestionUpdate = true
             )
 
-            if (selection != null) {
+            if (selection != null && settings.current.mInputAttributes.mShouldShowSuggestions) {
                 val info = ArrayList<SuggestedWordInfo?>()
                 info.add(
                     SuggestedWordInfo(
@@ -708,10 +755,11 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
 
     override fun requestSuggestionRefresh() {
         inputLogic.mSuggestedWords?.let {
-            onGetSuggestedWords(
+            onGetSuggestedWordsInternal(
                 it,
                 it.mInputStyle,
-                sequenceIdCompleted.get()
+                sequenceIdCompleted.get(),
+                false
             )
         }
     }
@@ -721,6 +769,11 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
 
     override fun onLayoutUpdated(layout: KeyboardLayoutSetV2) {
         inputLogic.mWordComposer.setCombiners(layout.mainLayout.combiners)
+
+        dictionaryFacilitator.updateSwipeLayoutAndDictsIfNeeded(
+            Settings.getInstance().current,
+            helper.keyboardSwitcher.keyboard
+        )
     }
 
     override fun setNeutralSuggestionStrip() {
@@ -728,7 +781,6 @@ class GeneralIME(val helper: IMEHelper) : IMEInterface, WordLearner, SuggestionS
         helper.setNeutralSuggestionStrip(expandableCfg)
     }
 
-    val blacklist = SuggestionBlacklist(Settings.getInstance(), helper.context, helper.lifecycleScope)
     override fun showSuggestionStrip(words: SuggestedWords?) {
         inputLogic.setSuggestedWords(words)
 

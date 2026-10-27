@@ -182,5 +182,12 @@ SKK Development Team <skk@ring.gr.jp>""",
         "https://rime.im/",
         "Copyright (c) 2014, RIME Developers",
         License.BSD3
+    ),
+    TP(
+        "ClearFlow",
+        "ClearFlow Layout",
+        "https://clearflowkeyboard.github.io/",
+        "Copyright (c) 2024-2026 ClearFlow Authors (Xiaojun Bi et al.)",
+        License.PublicDomainClearflow
     )
 )

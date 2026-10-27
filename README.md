@@ -3,7 +3,7 @@
 This is a fork of the futo keyboard that adds the ability to use custom sounds for keyboard output. But it doesn't let the user add custom sounds. A developer needs to come in and add the sounds themselves.
 
 Having users add their OWN custom sounds falls outside the scope of this project (at least for now), though that would be so effing cool, bro. For real for real. 
-
+Check out the [FUTO Keyboard website](https://keyboard.futo.tech/) for downloads and more information.
 
 ## Where Are the Sound Files From?
 Most sounds are taken under the [MIT license](https://opensource.org/license/mit), from this project: [mechvibes](https://github.com/hainguyents13/mechvibes-dx).

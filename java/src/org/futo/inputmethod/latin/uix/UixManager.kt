@@ -107,6 +107,7 @@ import org.futo.inputmethod.engine.ExpandableSuggestionBarConfiguration
 import org.futo.inputmethod.engine.IMEInterface
 import org.futo.inputmethod.engine.NonExpandableSuggestionBar
 import org.futo.inputmethod.event.Event
+import org.futo.inputmethod.latin.ATLCompat
 import org.futo.inputmethod.latin.AudioAndHapticFeedbackManager
 import org.futo.inputmethod.latin.BuildConfig
 import org.futo.inputmethod.latin.FoldingOptions
@@ -144,6 +145,7 @@ import org.futo.inputmethod.updates.isManualUpdateTimeExpired
 import org.futo.inputmethod.updates.openManualUpdateCheck
 import org.futo.inputmethod.updates.retrieveSavedLastUpdateCheckResult
 import org.futo.inputmethod.v2keyboard.ComputedKeyboardSize
+import org.futo.inputmethod.v2keyboard.getPrimaryLayoutOverride
 import org.futo.inputmethod.v2keyboard.FloatingKeyboardSize
 import org.futo.inputmethod.v2keyboard.KeyboardSizingCalculator
 import org.futo.inputmethod.v2keyboard.OneHandedDirection
@@ -603,6 +605,11 @@ class UixManager(private val latinIME: LatinIME) {
 
     private var mainKeyboardHidden = mutableStateOf(false)
 
+    fun getCurrentLayoutName(): String =
+        getPrimaryLayoutOverride(latinIME.currentInputEditorInfo)
+            ?: latinIME.latinIMELegacy.mKeyboardSwitcher.keyboard?.mId?.mKeyboardLayoutSetName
+            ?: "qwerty"
+
     private var numSuggestionsSinceNotice = 0
     private var currentNotice: MutableState<ImportantNotice?> = mutableStateOf(null)
 
@@ -612,6 +619,9 @@ class UixManager(private val latinIME: LatinIME) {
     private fun toggleActionsExpanded() {
         isActionsExpanded.value = !isActionsExpanded.value
         latinIME.deferSetSetting(latinIME, ActionBarExpanded, isActionsExpanded.value)
+
+        // invalidation strangeness (needs fixing)
+        if(ATLCompat.IsATL) latinIME.invalidateKeyboard(true)
     }
 
 
@@ -642,12 +652,13 @@ class UixManager(private val latinIME: LatinIME) {
 
     val isMainKeyboardHidden get() = mainKeyboardHidden.value
 
-    private fun onActionActivatedInternal(rawAction: Action) {
+    private fun onActionActivatedInternal(rawAction: Action, skipOverride: Boolean = false) {
         resizers.hideResizer()
 
-        val action = runBlocking {
+        val action = if(skipOverride)
+            rawAction
+        else
             ActionRegistry.getActionOverride(latinIME, rawAction)
-        }
 
         if (action.windowImpl != null) {
             enterActionWindowView(action)
@@ -658,11 +669,13 @@ class UixManager(private val latinIME: LatinIME) {
         }
     }
 
-    private fun onActionAltActivatedInternal(rawAction: Action) {
-        val action = runBlocking {
-            ActionRegistry.getActionOverride(latinIME, rawAction)
-        }
+    /// public function to skip action override for voice input
+    fun activateInternalVoiceIME() {
+        onActionActivatedInternal(org.futo.inputmethod.latin.uix.actions.VoiceInputAction, skipOverride = true)
+    }
 
+    private fun onActionAltActivatedInternal(rawAction: Action) {
+        val action = ActionRegistry.getActionOverride(latinIME, rawAction)
         action.altPressImpl?.invoke(keyboardManagerForAction, persistentStates[action])
     }
 
@@ -1639,6 +1652,16 @@ class UixManager(private val latinIME: LatinIME) {
         inlineStuffHiddenByTyping.value = textBlank == false
     }
 
+    fun updateEmojiTranslationsIfNeeded() {
+        if(latinIME.getSetting(SHOW_EMOJI_SUGGESTIONS)
+            && Settings.getInstance().current.needsToLookupSuggestions()
+        ) {
+            prevLocale?.let {
+                PersistentEmojiState.loadTranslationsForLanguage(latinIME, it)
+            }
+        }
+    }
+
     private var prevLocale: Locale? = null
     fun updateLocale(locale: Locale): Configuration? {
         var result: Configuration? = null
@@ -1653,7 +1676,7 @@ class UixManager(private val latinIME: LatinIME) {
             setContent()
         }
 
-        PersistentEmojiState.loadTranslationsForLanguage(latinIME, locale)
+        updateEmojiTranslationsIfNeeded()
         checkIfDictInstalled()
         return result
     }

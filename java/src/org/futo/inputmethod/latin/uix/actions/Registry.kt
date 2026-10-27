@@ -68,7 +68,7 @@ private fun List<Action>.verifyNamesAreUnique(): List<Action> {
 }
 
 object ActionRegistry {
-    suspend fun getActionOverride(context: Context, action: Action): Action {
+    fun getActionOverride(context: Context, action: Action): Action {
         return if(action == VoiceInputAction || action == SystemVoiceInputAction) {
             val useSystemVoiceInput = context.getSetting(USE_SYSTEM_VOICE_INPUT)
             if(useSystemVoiceInput) {
@@ -264,7 +264,7 @@ fun String.toActionList(): List<Action> = split(",").mapNotNull { AllActionsMap[
 val DefaultActionSettings = mapOf(
     ActionCategory.ActionKey to listOf(EmojiAction),
     ActionCategory.PinnedKey to listOf(VoiceInputAction),
-    ActionCategory.Favorites to listOf(SwitchLanguageAction, UndoAction, RedoAction, TextEditAction, ClipboardHistoryAction, ThemeAction, KeyboardModeAction),
+    ActionCategory.Favorites to listOfNotNull(if(IsDebug) MemoryDebugAction else null, SwitchLanguageAction, UndoAction, RedoAction, TextEditAction, ClipboardHistoryAction, ThemeAction, KeyboardModeAction),
     ActionCategory.More to listOf(), // Remaining actions get populated automatically by ensureWellFormed
     ActionCategory.Disabled to listOf(MemoryDebugAction, SystemVoiceInputAction, BugViewerAction)
 )

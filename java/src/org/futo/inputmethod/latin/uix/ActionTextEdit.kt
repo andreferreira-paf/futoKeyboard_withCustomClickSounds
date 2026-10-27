@@ -28,6 +28,7 @@ import android.view.inputmethod.TextBoundsInfoResult
 import android.view.inputmethod.TextSnapshot
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +60,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.futo.inputmethod.latin.ATLCompat
 import java.util.concurrent.Executor
 import java.util.function.Consumer
 import java.util.function.IntConsumer
@@ -182,6 +185,7 @@ private fun GenericEditTextCompose(
     onEnter: (() -> Unit)? = null,
     autofocus: Boolean = false,
     forceQwerty: Boolean = false,
+    forcedLayout: String? = null,
     inputFilters: Array<InputFilter>? = null,
 ) {
     val context = LocalContext.current
@@ -228,6 +232,7 @@ private fun GenericEditTextCompose(
             privateImeOptions = StringBuilder().apply {
                 if(!autocorrect) append("org.futo.inputmethod.latin.NoSuggestions=1,")
                 if(forceQwerty) append("org.futo.inputmethod.latin.ForceLayout=qwerty,org.futo.inputmethod.latin.ForceLocale=zz,")
+                if(forcedLayout != null) append(forcedLayout)
             }.toString()
 
             setHeight(height.toInt())
@@ -239,7 +244,7 @@ private fun GenericEditTextCompose(
                 }
                 onCreateInputConnection(editorInfo)
 
-                onOverride.invoke(inputConnection!!, editorInfo)
+                if(!ATLCompat.IsATL) onOverride.invoke(inputConnection!!, editorInfo)
             }
 
             // Remove underline and padding
@@ -314,8 +319,9 @@ fun ActionTextEditor(
     afterOverride: (() -> Unit)? = null,
     afterUnOverride: ((Boolean) -> Unit)? = null,
     onEnter: (() -> Unit)? = null,
-    autofocus: Boolean = false,
+    autofocus: Boolean = true,
     inputFilters: Array<InputFilter>? = null,
+    placeholder: String? = null
 ) {
     val manager = if(!LocalInspectionMode.current) LocalManager.current else null
     GenericEditTextCompose(
@@ -324,7 +330,7 @@ fun ActionTextEditor(
         textSize = textSize,
         typeface = typeface,
         autocorrect = autocorrect,
-        placeholder = null,
+        placeholder = placeholder,
         modifier = modifier,
         autofocus = autofocus,
         onEnter = onEnter,
@@ -336,7 +342,7 @@ fun ActionTextEditor(
             val result = manager!!.unsetInputConnection()
             afterUnOverride?.invoke(result)
         },
-        inputFilters = inputFilters
+        inputFilters = inputFilters,
     )
 }
 
@@ -350,6 +356,7 @@ fun SettingsTextEdit(
     autocorrect: Boolean = true,
     autofocus: Boolean = false,
     forceQwerty: Boolean = false,
+    forcedLayout: String? = null,
     error: Boolean = false,
 ) {
     Surface(
@@ -374,8 +381,28 @@ fun SettingsTextEdit(
                 placeholder = placeholder,
                 autocorrect = autocorrect,
                 autofocus = autofocus,
-                forceQwerty = forceQwerty
+                forceQwerty = forceQwerty,
+                forcedLayout = forcedLayout
             )
+        }
+    }
+}
+
+@Composable
+fun ActionHeaderSearch(searchText: MutableState<String>, modifier: Modifier = Modifier, placeholder: String? = null) {
+    Surface(
+        color = LocalKeyboardScheme.current.keyboardContainer,
+        contentColor = LocalKeyboardScheme.current.onKeyboardContainer,
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .padding(2.dp)
+    ) {
+        Box(
+            modifier = Modifier.padding(8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            ActionTextEditor(text = searchText, placeholder = placeholder)
         }
     }
 }

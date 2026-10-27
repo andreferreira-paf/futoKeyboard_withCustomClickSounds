@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import org.futo.inputmethod.compat.AppWorkaroundsUtils;
 import org.futo.inputmethod.latin.InputAttributes;
 import org.futo.inputmethod.latin.R;
+import org.futo.inputmethod.latin.Subtypes;
 import org.futo.inputmethod.latin.uix.actions.ActionRegistry;
 import org.futo.inputmethod.latin.uix.actions.RegistryKt;
 import org.futo.inputmethod.latin.utils.AsyncResultHolder;
@@ -78,10 +79,12 @@ public class SettingsValues {
     public final boolean mUsePersonalizedDicts;
     public final boolean mUseDoubleSpacePeriod;
     public final boolean mBlockPotentiallyOffensive;
+    public final boolean mBlockSlurs;
     // Use bigrams to predict the next word when there is no input for it yet
     public final boolean mBigramPredictionEnabled;
     public final boolean mTransformerPredictionEnabled;
     public final boolean mGestureInputEnabled;
+    public final boolean mGestureInputSensitive;
     public final boolean mGestureTrailEnabled;
     public final boolean mGestureFloatingPreviewTextEnabled;
     public final boolean mSlidingKeyInputPreviewEnabled;
@@ -102,10 +105,14 @@ public class SettingsValues {
 
     public final boolean mBackspaceDeletesInsertedText;
     public final boolean mBackspaceUndoesAutocorrect;
-    public final int mSpacebarMode;
+    public final int mSpacebarSwipeMode;
+    public final int mSpacebarHoldMode;
     public final int mBackspaceMode;
+    public final int mBackspaceModeHold;
     public final int mNumberRowMode;
     public final int mAltSpacesMode;
+
+    public final List<Locale> mMultilingualLocales;
 
     // From the input box
     @Nonnull
@@ -189,45 +196,20 @@ public class SettingsValues {
             )
         );
         mShowsActionKey = mActionKeyId != -1;
-        mIsNumberRowEnabledByUser = prefs.getBoolean(
-            Settings.PREF_ENABLE_NUMBER_ROW,
-            false
-        );
-        mIsNumberRowEnabled =
-            mIsNumberRowEnabledByUser ||
-            (inputAttributes.mIsPasswordField &&
-                !inputAttributes.mIsNumericalPasswordField) ||
-            inputAttributes.mIsEmailField;
-        mUseLocalNumbers = !prefs.getBoolean(
-            Settings.PREF_USE_WESTERN_NUMERALS,
-            false
-        );
-        mIsArrowRowEnabled = prefs.getBoolean(
-            Settings.PREF_ENABLE_ARROW_ROW,
-            false
-        );
-        mIsUsingAlternativePeriodKey =
-            prefs.getBoolean(Settings.PREF_ENABLE_ALT_PERIOD_KEY, false) &&
-            SettingsValues.altPeriodKeyAllowedForLocale(mLocale);
-        mUseDictionaryKeyBoosting = prefs.getBoolean(
-            Settings.PREF_USE_DICT_KEY_BOOSTING,
-            true
-        );
-        mUseContactsDict = prefs.getBoolean(
-            Settings.PREF_KEY_USE_CONTACTS_DICT,
-            true
-        );
-        mUsePersonalizedDicts = prefs.getBoolean(
-            Settings.PREF_KEY_USE_PERSONALIZED_DICTS,
-            true
-        );
-        mUseDoubleSpacePeriod =
-            prefs.getBoolean(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, true) &&
-            inputAttributes.mIsGeneralTextInput;
-        mBlockPotentiallyOffensive = Settings.readBlockPotentiallyOffensive(
-            prefs,
-            res
-        );
+        mIsNumberRowEnabledByUser = prefs.getBoolean(Settings.PREF_ENABLE_NUMBER_ROW, false);
+        mIsNumberRowEnabled = mIsNumberRowEnabledByUser
+                || (inputAttributes.mIsPasswordField && !inputAttributes.mIsNumericalPasswordField)
+                || inputAttributes.mIsEmailField;
+        mUseLocalNumbers = !prefs.getBoolean(Settings.PREF_USE_WESTERN_NUMERALS, false);
+        mIsArrowRowEnabled = prefs.getBoolean(Settings.PREF_ENABLE_ARROW_ROW, false);
+        mIsUsingAlternativePeriodKey = prefs.getBoolean(Settings.PREF_ENABLE_ALT_PERIOD_KEY, false) && SettingsValues.altPeriodKeyAllowedForLocale(mLocale);
+        mUseDictionaryKeyBoosting = prefs.getBoolean(Settings.PREF_USE_DICT_KEY_BOOSTING, true);
+        mUseContactsDict = prefs.getBoolean(Settings.PREF_KEY_USE_CONTACTS_DICT, true);
+        mUsePersonalizedDicts = prefs.getBoolean(Settings.PREF_KEY_USE_PERSONALIZED_DICTS, true);
+        mUseDoubleSpacePeriod = prefs.getBoolean(Settings.PREF_KEY_USE_DOUBLE_SPACE_PERIOD, true)
+                && inputAttributes.mIsGeneralTextInput;
+        mBlockPotentiallyOffensive = Settings.readBlockPotentiallyOffensive(prefs, res);
+        mBlockSlurs = Settings.readBlockSlurs(prefs, res);
         mAutoCorrectEnabled = Settings.readAutoCorrectEnabled(prefs, res);
         final String autoCorrectionThresholdRawValue = mAutoCorrectEnabled
             ? res.getString(
@@ -262,26 +244,18 @@ public class SettingsValues {
             true
         );
 
-        mSpacebarMode = prefs.getInt(
-            Settings.PREF_SPACEBAR_MODE,
-            Settings.SPACEBAR_MODE_SWIPE_CURSOR
-        );
-        mBackspaceMode = prefs.getInt(
-            Settings.PREF_BACKSPACE_MODE,
-            Settings.BACKSPACE_MODE_CHARACTERS
-        );
-        mNumberRowMode = mIsNumberRowEnabledByUser
-            ? prefs.getInt(
-                  Settings.PREF_NUMBER_ROW_MODE,
-                  Settings.NUMBER_ROW_MODE_DEFAULT
-              )
-            : Settings.NUMBER_ROW_MODE_DEFAULT;
-        mAltSpacesMode = inputAttributes.mIsEmailField
-            ? Settings.SPACES_MODE_NONE
-            : prefs.getInt(
-                  Settings.PREF_ALT_SPACES_MODE,
-                  Settings.DEFAULT_ALT_SPACES_MODE
-              );
+        int legacySpacebarMode = prefs.getInt(Settings.PREF_SPACEBAR_MODE_LEGACY, Settings.SPACEBAR_MODE_SWIPE_CURSOR_LEGACY);
+        mSpacebarSwipeMode = prefs.getInt(Settings.PREF_SPACEBAR_SWIPE_MODE,
+                legacySpacebarMode == Settings.SPACEBAR_MODE_SWIPE_LANGUAGE_LEGACY ? Settings.SPACEBAR_MODE_LANGUAGE : Settings.SPACEBAR_MODE_CURSOR);
+        mSpacebarHoldMode = prefs.getInt(Settings.PREF_SPACEBAR_HOLD_MODE,
+                legacySpacebarMode == Settings.SPACEBAR_MODE_SWIPE_CURSOR_LEGACY ? Settings.SPACEBAR_MODE_LANGUAGE : Settings.SPACEBAR_MODE_CURSOR);
+
+        mBackspaceMode = prefs.getInt(Settings.PREF_BACKSPACE_MODE, Settings.BACKSPACE_MODE_CHARACTERS);
+        mBackspaceModeHold = prefs.getInt(Settings.PREF_BACKSPACE_MODE_HOLD, mBackspaceMode);
+        mNumberRowMode = mIsNumberRowEnabledByUser ?
+                prefs.getInt(Settings.PREF_NUMBER_ROW_MODE, Settings.NUMBER_ROW_MODE_DEFAULT)
+                : Settings.NUMBER_ROW_MODE_DEFAULT;
+        mAltSpacesMode = inputAttributes.mIsEmailField ? Settings.SPACES_MODE_NONE : prefs.getInt(Settings.PREF_ALT_SPACES_MODE, Settings.DEFAULT_ALT_SPACES_MODE);
 
         mShouldShowLxxSuggestionUi =
             Settings.SHOULD_SHOW_LXX_SUGGESTION_UI &&
@@ -314,26 +288,16 @@ public class SettingsValues {
         );
         mPlausibilityThreshold = Settings.readPlausibilityThreshold(res);
         mGestureInputEnabled = Settings.readGestureInputEnabled(prefs, res);
-        mGestureTrailEnabled = prefs.getBoolean(
-            Settings.PREF_GESTURE_PREVIEW_TRAIL,
-            true
-        );
-        mCloudSyncEnabled = prefs.getBoolean(
-            LocalSettingsConstants.PREF_ENABLE_CLOUD_SYNC,
-            false
-        );
-        mAccount = prefs.getString(
-            LocalSettingsConstants.PREF_ACCOUNT_NAME,
-            null /* default */
-        );
-        mGestureFloatingPreviewTextEnabled =
-            false &&
-            !mInputAttributes.mDisableGestureFloatingPreviewText &&
-            prefs.getBoolean(Settings.PREF_GESTURE_FLOATING_PREVIEW_TEXT, true);
-        mAutoCorrectionEnabledPerUserSettings =
-            mAutoCorrectEnabled && !mInputAttributes.mInputTypeNoAutoCorrect;
-        mAutoCorrectionEnabledPerTextFieldSettings =
-            !mInputAttributes.mInputTypeNoAutoCorrect;
+        mGestureInputSensitive = prefs.getBoolean(Settings.PREF_GESTURE_INPUT_SENSITIVITY, false);
+        mGestureTrailEnabled = prefs.getBoolean(Settings.PREF_GESTURE_PREVIEW_TRAIL, true);
+        mCloudSyncEnabled = prefs.getBoolean(LocalSettingsConstants.PREF_ENABLE_CLOUD_SYNC, false);
+        mAccount = prefs.getString(LocalSettingsConstants.PREF_ACCOUNT_NAME,
+                null /* default */);
+        mGestureFloatingPreviewTextEnabled = false && !mInputAttributes.mDisableGestureFloatingPreviewText
+                && prefs.getBoolean(Settings.PREF_GESTURE_FLOATING_PREVIEW_TEXT, true);
+        mAutoCorrectionEnabledPerUserSettings = mAutoCorrectEnabled
+                && !mInputAttributes.mInputTypeNoAutoCorrect;
+        mAutoCorrectionEnabledPerTextFieldSettings = !mInputAttributes.mInputTypeNoAutoCorrect;
         mSuggestionsEnabledPerUserSettings = readSuggestionsEnabled(prefs);
         mIsInternal = Settings.isInternal(prefs);
         mHasCustomKeyPreviewAnimationParams = prefs.getBoolean(
@@ -384,10 +348,11 @@ public class SettingsValues {
             defaultKeyPreviewDismissEndScale
         );
         mKeyPreviewDismissEndYScale = Settings.readKeyPreviewAnimationScale(
-            prefs,
-            DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_Y_SCALE,
-            defaultKeyPreviewDismissEndScale
-        );
+                prefs, DebugSettings.PREF_KEY_PREVIEW_DISMISS_END_Y_SCALE,
+                defaultKeyPreviewDismissEndScale);
+
+        mMultilingualLocales = Subtypes.INSTANCE.getMultilingualBucket(context, mLocale);
+
         mDisplayOrientation = res.getConfiguration().orientation;
         mAppWorkarounds = new AsyncResultHolder<>("AppWorkarounds");
         final PackageInfo packageInfo =
@@ -760,8 +725,6 @@ public class SettingsValues {
         sb.append("" + mBackspaceDeletesInsertedText);
         sb.append("\n   mBackspaceUndoesAutocorrect = ");
         sb.append("" + mBackspaceUndoesAutocorrect);
-        sb.append("\n   mSpacebarMode = ");
-        sb.append("" + mSpacebarMode);
         sb.append("\n   mBackspaceMode = ");
         sb.append("" + mBackspaceMode);
         sb.append("\n   mNumberRowMode = ");
